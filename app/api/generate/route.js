@@ -18,9 +18,31 @@ export async function POST(request) {
     }
 
     // Build messages array
+    let userMessage;
+
+    // Handle different input types
+    if (typeof userInput === 'object' && userInput.image) {
+      // Image input with text and image data
+      const { text, image } = userInput;
+      userMessage = {
+        role: 'user',
+        content: USER_PROMPT_TEMPLATE(text, chartType),
+        image: {
+          data: image.data,
+          mimeType: image.mimeType
+        }
+      };
+    } else {
+      // Regular text input
+      userMessage = {
+        role: 'user',
+        content: USER_PROMPT_TEMPLATE(userInput, chartType)
+      };
+    }
+
     const fullMessages = [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: USER_PROMPT_TEMPLATE(userInput, chartType) }
+      userMessage
     ];
 
     // Create a readable stream for SSE

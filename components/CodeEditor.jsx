@@ -2,7 +2,7 @@
 
 import { Editor } from '@monaco-editor/react';
 
-export default function CodeEditor({ code, onChange, onApply, onOptimize, onClear, jsonError, onClearJsonError }) {
+export default function CodeEditor({ code, onChange, onApply, onOptimize, onClear, jsonError, onClearJsonError, isGenerating, isApplyingCode, isOptimizingCode }) {
   return (
     <div className="flex relative flex-col h-full bg-gray-50 border-t border-gray-200">
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
@@ -10,34 +10,65 @@ export default function CodeEditor({ code, onChange, onApply, onOptimize, onClea
         <div className="flex space-x-2">
           <button
             onClick={onClear}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors duration-200"
+            disabled={isGenerating || isApplyingCode || isOptimizingCode}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
           >
             清除
+            {isGenerating && (
+              <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+            )}
           </button>
           <button
             onClick={onOptimize}
-            className="px-4 py-2 text-sm font-medium text-white rounded"            style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
+            disabled={isGenerating || isApplyingCode || isOptimizingCode || !code.trim()}
+            className="px-4 py-2 text-sm font-medium text-white rounded disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
+            style={{
+              background: isGenerating || isApplyingCode || isOptimizingCode ? '#d1d5db' : 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
             }}
             title="优化图标布局和箭头连接"
           >
-            优化
+            {isOptimizingCode ? (
+              <>
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>优化中...</span>
+              </>
+            ) : (
+              <>
+                <span>优化</span>
+                {isGenerating && (
+                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+              </>
+            )}
           </button>
           <button
             onClick={onApply}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-800 transition-colors duration-200 flex items-center gap-2"
+            disabled={isGenerating || isApplyingCode || isOptimizingCode || !code.trim()}
+            className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
           >
-            应用到画布
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-4 h-4"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
+            {isApplyingCode ? (
+              <>
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>应用中...</span>
+              </>
+            ) : (
+              <>
+                <span>应用到画布</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+                {isGenerating && (
+                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+              </>
+            )}
           </button>
         </div>
       </div>

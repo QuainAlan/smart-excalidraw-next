@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
+import ImageUpload from './ImageUpload';
+import LoadingOverlay from './LoadingOverlay';
+import { generateImagePrompt } from '@/lib/image-utils';
 
 // Chart type options
 // Must match CHART_TYPE_NAMES in lib/prompts.js
@@ -30,15 +33,19 @@ const CHART_TYPES = {
 };
 
 export default function Chat({ onSendMessage, isGenerating }) {
-  const [activeTab, setActiveTab] = useState('text'); // 'text' or 'file'
+  const [activeTab, setActiveTab] = useState('text'); // 'text', 'file', or 'image'
   const [input, setInput] = useState('');
   const [chartType, setChartType] = useState('auto'); // Selected chart type
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileStatus, setFileStatus] = useState(''); // '', 'parsing', 'success', 'error'
   const [fileError, setFileError] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [fileContent, setFileContent] = useState(''); // Store parsed file content
+  const [canGenerate, setCanGenerate] = useState(false); // Track if generation is possible
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  
   const handleSubmit = (e) => {
     e.preventDefault();
     if (input.trim() && !isGenerating) {
@@ -56,15 +63,24 @@ export default function Chat({ onSendMessage, isGenerating }) {
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      // Reset file-related state when no file is selected
+      setSelectedFile(null);
+      setFileStatus('');
+      setFileError('');
+      setFileContent('');
+      setCanGenerate(false);
+      return;
+    }
 
     // Validate file type
     const validExtensions = ['.md', '.txt'];
     const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    
+
     if (!validExtensions.includes(fileExtension)) {
       setFileError('请选择 .md 或 .txt 文件');
       setFileStatus('error');
+      setCanGenerate(false);
       return;
     }
 
@@ -73,32 +89,37 @@ export default function Chat({ onSendMessage, isGenerating }) {
     if (file.size > maxSize) {
       setFileError('文件大小不能超过 1MB');
       setFileStatus('error');
+      setCanGenerate(false);
       return;
     }
 
     setSelectedFile(file);
     setFileStatus('parsing');
     setFileError('');
+    setFileContent(''); // Clear previous content
+    setCanGenerate(false); // Disable generation until parsing is complete
 
     // Read file content
     const reader = new FileReader();
-    
+
     reader.onload = (event) => {
       const content = event.target?.result;
       if (typeof content === 'string' && content.trim()) {
         setFileStatus('success');
-        // Auto-submit the file content
-        onSendMessage(content.trim(), chartType);
-        // Don't reset file input - keep it for user reference
+        setFileContent(content.trim()); // Store content for manual generation
+        setCanGenerate(true); // Enable generation button
+        // Don't auto-submit the file content - wait for user to click generate button
       } else {
         setFileError('文件内容为空');
         setFileStatus('error');
+        setCanGenerate(false);
       }
     };
 
     reader.onerror = () => {
       setFileError('文件读取失败');
       setFileStatus('error');
+      setCanGenerate(false);
     };
 
     reader.readAsText(file);
@@ -106,6 +127,43 @@ export default function Chat({ onSendMessage, isGenerating }) {
 
   const handleFileButtonClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleFileGenerate = () => {
+    if (fileContent && !isGenerating) {
+      onSendMessage(fileContent, chartType);
+      // Reset canGenerate state after initiating generation
+      setCanGenerate(false);
+    }
+  };
+
+  const handleImageSelect = (imageData) => {
+    setSelectedImage(imageData);
+    // 图片选择完成后，不立即发送处理请求
+    // 用户需要点击"开始生成"按钮才会开始生成
+    if (imageData) {
+      setCanGenerate(true); // Enable generation button for image
+    } else {
+      setCanGenerate(false);
+    }
+  };
+
+  const handleImageSubmit = () => {
+    if (selectedImage && !isGenerating) {
+      // 生成针对图片的提示词
+      const imagePrompt = generateImagePrompt(chartType);
+
+      // 创建包含图片数据的消息对象
+      const messageData = {
+        text: imagePrompt,
+        image: selectedImage,
+        chartType
+      };
+
+      onSendMessage(messageData, chartType);
+      // Reset canGenerate state after initiating generation
+      setCanGenerate(false);
+    }
   };
 
   return (
@@ -118,7 +176,10 @@ export default function Chat({ onSendMessage, isGenerating }) {
       {/* Tab Navigation */}
       <div className="flex border-b border-gray-200 bg-gray-50">
         <button
-          onClick={() => setActiveTab('text')}
+          onClick={() => {
+            setActiveTab('text');
+            setCanGenerate(false); // Reset generation state when switching tabs
+          }}
           className={`flex-1 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
             activeTab === 'text'
               ? 'bg-white text-gray-900 border-b-2 border-gray-900'
@@ -128,7 +189,10 @@ export default function Chat({ onSendMessage, isGenerating }) {
           文本输入
         </button>
         <button
-          onClick={() => setActiveTab('file')}
+          onClick={() => {
+            setActiveTab('file');
+            setCanGenerate(!!fileContent); // Set generation state based on file content
+          }}
           className={`flex-1 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
             activeTab === 'file'
               ? 'bg-white text-gray-900 border-b-2 border-gray-900'
@@ -137,13 +201,26 @@ export default function Chat({ onSendMessage, isGenerating }) {
         >
           文件上传
         </button>
+        <button
+          onClick={() => {
+            setActiveTab('image');
+            setCanGenerate(!!selectedImage); // Set generation state based on selected image
+          }}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
+            activeTab === 'image'
+              ? 'bg-white text-gray-900 border-b-2 border-gray-900'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+          }`}
+        >
+          图片上传
+        </button>
       </div>
 
       {/* Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Text Input Tab */}
         {activeTab === 'text' && (
-          <div className="flex-1 flex flex-col p-4">
+          <div className="flex-1 flex flex-col p-4 relative">
             <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
               {/* Chart Type Selector */}
               <div className="mb-3">
@@ -195,24 +272,18 @@ export default function Chat({ onSendMessage, isGenerating }) {
                   )}
                 </button>
               </div>
-              {/* Loading status indicator */}
-              {isGenerating && (
-                <div className="mt-2 flex items-center text-sm text-blue-600">
-                  <div className="flex space-x-1 mr-2">
-                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                  <span>正在生成图表...</span>
-                </div>
-              )}
             </form>
+            {/* Unified Loading Overlay */}
+            <LoadingOverlay
+              isVisible={isGenerating}
+              message="正在生成图表..."
+            />
           </div>
         )}
 
         {/* File Upload Tab */}
         {activeTab === 'file' && (
-          <div className="flex-1 flex flex-col items-center justify-center p-4">
+          <div className="flex-1 flex flex-col items-center  p-4 relative">
             {/* Chart Type Selector */}
             <div className="w-full max-w-md mb-6">
               <label htmlFor="chart-type-file" className="block text-xs font-medium text-gray-700 mb-1">
@@ -259,22 +330,10 @@ export default function Chat({ onSendMessage, isGenerating }) {
                 </svg>
               )}
               <span>
-                {fileStatus === 'parsing' ? '解析中...' : 
+                {fileStatus === 'parsing' ? '解析中...' :
                  isGenerating ? '生成中...' : '选择文件'}
               </span>
             </button>
-            
-            {/* Loading status indicator for file upload */}
-            {isGenerating && fileStatus === 'success' && (
-              <div className="mt-4 flex items-center text-sm text-blue-600">
-                <div className="flex space-x-1 mr-2">
-                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                </div>
-                <span>正在生成图表...</span>
-              </div>
-            )}
 
             {/* File Status */}
             {selectedFile && (
@@ -305,7 +364,7 @@ export default function Chat({ onSendMessage, isGenerating }) {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
                       {fileStatus === 'success' && !isGenerating && (
-                        <p className="text-xs text-green-600 mt-1">文件已上传</p>
+                        <p className="text-xs text-green-600 mt-1">文件已上传，可以开始生成</p>
                       )}
                       {fileStatus === 'success' && isGenerating && (
                         <p className="text-xs text-blue-600 mt-1">正在生成图表...</p>
@@ -319,8 +378,47 @@ export default function Chat({ onSendMessage, isGenerating }) {
                     </div>
                   </div>
                 </div>
+
+                {/* Generate Button */}
+                {fileStatus === 'success' && !isGenerating && (
+                  <div className="mt-4">
+                    <button
+                      onClick={handleFileGenerate}
+                      disabled={!canGenerate}
+                      className="w-full px-4 py-3 bg-gray-900 text-white rounded hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span>开始生成</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
+            {/* Unified Loading Overlay */}
+            <LoadingOverlay
+              isVisible={isGenerating || fileStatus === 'parsing'}
+              message={fileStatus === 'parsing' ? '正在解析文件...' : '正在生成图表...'}
+            />
+          </div>
+        )}
+
+        {/* Image Upload Tab */}
+        {activeTab === 'image' && (
+          <div className="flex-1 flex flex-col relative">
+            <ImageUpload
+              onImageSelect={handleImageSelect}
+              isGenerating={isGenerating}
+              chartType={chartType}
+              onChartTypeChange={setChartType}
+              onImageGenerate={handleImageSubmit}
+            />
+            {/* Unified Loading Overlay for image upload */}
+            <LoadingOverlay
+              isVisible={isGenerating}
+              message="正在识别图片内容并生成图表..."
+            />
           </div>
         )}
       </div>

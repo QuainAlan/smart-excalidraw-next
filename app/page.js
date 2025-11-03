@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Chat from '@/components/Chat';
 import CodeEditor from '@/components/CodeEditor';
 import ConfigModal from '@/components/ConfigModal';
+import ContactModal from '@/components/ContactModal';
 import { getConfig, saveConfig, isConfigValid } from '@/lib/config';
 import { optimizeExcalidrawCode } from '@/lib/optimizeArrows';
 
@@ -16,9 +17,12 @@ const ExcalidrawCanvas = dynamic(() => import('@/components/ExcalidrawCanvas'), 
 export default function Home() {
   const [config, setConfig] = useState(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [elements, setElements] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isApplyingCode, setIsApplyingCode] = useState(false);
+  const [isOptimizingCode, setIsOptimizingCode] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(30); // Percentage of viewport width
   const [isResizingHorizontal, setIsResizingHorizontal] = useState(false);
   const [apiError, setApiError] = useState(null);
@@ -262,15 +266,33 @@ export default function Home() {
   };
 
   // Handle applying code from editor
-  const handleApplyCode = () => {
-    tryParseAndApply(generatedCode);
+  const handleApplyCode = async () => {
+    setIsApplyingCode(true);
+    try {
+      // Simulate async operation for better UX
+      await new Promise(resolve => setTimeout(resolve, 300));
+      tryParseAndApply(generatedCode);
+    } catch (error) {
+      console.error('Error applying code:', error);
+    } finally {
+      setIsApplyingCode(false);
+    }
   };
 
   // Handle optimizing code
-  const handleOptimizeCode = () => {
-    const optimizedCode = optimizeExcalidrawCode(generatedCode);
-    setGeneratedCode(optimizedCode);
-    tryParseAndApply(optimizedCode);
+  const handleOptimizeCode = async () => {
+    setIsOptimizingCode(true);
+    try {
+      // Simulate async operation for better UX
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const optimizedCode = optimizeExcalidrawCode(generatedCode);
+      setGeneratedCode(optimizedCode);
+      tryParseAndApply(optimizedCode);
+    } catch (error) {
+      console.error('Error optimizing code:', error);
+    } finally {
+      setIsOptimizingCode(false);
+    }
   };
 
   // Handle clearing code
@@ -320,7 +342,7 @@ export default function Home() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
         <div>
-          <h1 className="text-lg font-semibold text-gray-900">智能 Excalidraw</h1>
+          <h1 className="text-lg font-semibold text-gray-900">Smart Excalidraw</h1>
           <p className="text-xs text-gray-500">AI 驱动的图表生成</p>
         </div>
         <div className="flex items-center space-x-3">
@@ -369,7 +391,7 @@ export default function Home() {
           )}
 
           {/* Input Section */}
-          <div style={{ height: '40%' }} className="overflow-hidden">
+          <div style={{ height: '60%' }} className="overflow-hidden">
             <Chat
               onSendMessage={handleSendMessage}
               isGenerating={isGenerating}
@@ -377,7 +399,7 @@ export default function Home() {
           </div>
 
           {/* Code Editor Section */}
-          <div style={{ height: '60%' }} className="overflow-hidden">
+          <div style={{ height: '40%' }} className="overflow-hidden">
             <CodeEditor
               code={generatedCode}
               onChange={setGeneratedCode}
@@ -386,6 +408,9 @@ export default function Home() {
               onClear={handleClearCode}
               jsonError={jsonError}
               onClearJsonError={() => setJsonError(null)}
+              isGenerating={isGenerating}
+              isApplyingCode={isApplyingCode}
+              isOptimizingCode={isOptimizingCode}
             />
           </div>
         </div>
@@ -418,7 +443,7 @@ export default function Home() {
           <span>AI 驱动的智能图表生成工具</span>
           <span className="text-gray-400">|</span>
           <a
-            href="https://github.com/yourusername/smart-excalidraw-next"
+            href="https://github.com/liujuntao123/smart-excalidraw-next"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center space-x-1 hover:text-gray-900 transition-colors"
@@ -428,8 +453,24 @@ export default function Home() {
             </svg>
             <span>GitHub</span>
           </a>
+          <span className="text-gray-400">|</span>
+          <button
+            onClick={() => setIsContactModalOpen(true)}
+            className="flex items-center space-x-1 hover:text-gray-900 transition-colors text-blue-600 hover:text-blue-700"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span>联系作者</span>
+          </button>
         </div>
       </footer>
+
+      {/* Contact Modal */}
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </div>
   );
 }
