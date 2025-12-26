@@ -12,8 +12,7 @@ https://github.com/liujuntao123/ai-draw-nexus
 
 
 一图介绍
-
-<img width="2816" height="1536" alt="Gemini_Generated_Image_2drs882drs882drs" src="https://github.com/user-attachments/assets/42d7a2ec-b56b-420c-becb-c598179d4541" />
+![generated-image-1766740104116](https://github.com/user-attachments/assets/f94e0702-6442-40f7-8b4a-ff4aabe68d5b)
 
 
 
